@@ -1,8 +1,8 @@
 # hellcase-daily
 
-Automatisation personnelle du giveaway gratuit quotidien sur Hellcase.
+Automatisation personnelle des actions gratuites quotidiennes sur Hellcase : inscription au giveaway gratuit du jour et ouverture de la caisse `newbie` gratuite.
 
-Le projet utilise Playwright avec une session Hellcase persistante. La connexion est effectuée manuellement une première fois, puis le runner quotidien ouvre la page des giveaways, cherche un giveaway clairement gratuit et tente de s'y inscrire.
+Le projet utilise Playwright avec une session Hellcase persistante. La connexion est effectuée manuellement une première fois, puis le runner quotidien exécute deux actions : rejoindre le giveaway gratuit du jour et ouvrir la caisse gratuite `newbie` sur `https://hellcase.com/fr/open/newbie`.
 
 ## Principes de sécurité
 
@@ -60,7 +60,10 @@ Le script :
 3. cherche un giveaway avec des signaux `free/gratuit` + `daily/quotidien` ;
 4. rejette les pages qui semblent demander une action payante ;
 5. vérifie si le compte est déjà inscrit ;
-6. en dry-run, affiche uniquement ce qu'il ferait.
+6. ouvre ensuite la page `/open/newbie` ;
+7. vérifie que la caisse est explicitement gratuite et qu'aucune dépense n'est demandée ;
+8. ouvre la caisse si elle n'a pas déjà été ouverte aujourd'hui ;
+9. en dry-run, affiche uniquement ce qu'il ferait.
 
 ## 3. Activer réellement l'inscription
 
@@ -118,11 +121,11 @@ Pour une utilisation réelle, mettre `DRY_RUN=false` dans le fichier `.env` uniq
 
 La V1 utilise des heuristiques sur les liens et textes visibles de la page Hellcase. Le DOM réel peut nécessiter d'ajuster les sélecteurs après une première exécution.
 
-Le runner est volontairement conservateur : en cas de doute, il ne clique pas.
+Le runner est volontairement conservateur : en cas de doute, il ne clique pas. Les deux actions sont isolées : si l'une échoue, l'autre est quand même tentée.
 
 ## Roadmap
 
-- Valider les sélecteurs sur le DOM actuel de Hellcase.
+- Valider les sélecteurs du giveaway et de la caisse `newbie` sur le DOM actuel de Hellcase.
 - Ajouter des tests sur des fixtures HTML.
 - Ajouter une capture d'écran en cas d'échec.
 - Ajouter un statut distinct pour session expirée / CAPTCHA.
