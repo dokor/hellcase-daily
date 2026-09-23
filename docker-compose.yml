@@ -1,13 +1,25 @@
 services:
-  hellcase-daily:
+  browser-automations:
     build: .
     environment:
+      PORT: 3000
+      AUTOMATION_API_TOKEN: ${AUTOMATION_API_TOKEN:-}
       HELLCASE_BASE_URL: ${HELLCASE_BASE_URL:-https://hellcase.com/fr}
       HELLCASE_GIVEAWAYS_URL: ${HELLCASE_GIVEAWAYS_URL:-https://hellcase.com/fr/giveaways}
+      HELLCASE_NEWBIE_CASE_URL: ${HELLCASE_NEWBIE_CASE_URL:-https://hellcase.com/fr/open/newbie}
       HELLCASE_SESSION_PATH: /app/data/hellcase-session.json
       HEADLESS: ${HEADLESS:-true}
       DRY_RUN: ${DRY_RUN:-true}
       NTFY_URL: ${NTFY_URL:-}
     volumes:
       - ./data:/app/data
-    restart: "no"
+    expose:
+      - "3000"
+    networks:
+      - automation
+    ipc: host
+    restart: unless-stopped
+
+networks:
+  automation:
+    external: true
