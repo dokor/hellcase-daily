@@ -11,6 +11,9 @@ export const config = {
   giveawaysUrl:
     process.env.HELLCASE_GIVEAWAYS_URL ??
     "https://hellcase.com/fr/giveaways",
+  newbieCaseUrl:
+    process.env.HELLCASE_NEWBIE_CASE_URL ??
+    "https://hellcase.com/fr/open/newbie",
   sessionPath:
     process.env.HELLCASE_SESSION_PATH ?? "./data/hellcase-session.json",
   headless: bool("HEADLESS", true),
