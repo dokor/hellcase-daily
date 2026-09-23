@@ -1,0 +1,13 @@
+services:
+  hellcase-daily:
+    build: .
+    environment:
+      HELLCASE_BASE_URL: ${HELLCASE_BASE_URL:-https://hellcase.com/fr}
+      HELLCASE_GIVEAWAYS_URL: ${HELLCASE_GIVEAWAYS_URL:-https://hellcase.com/fr/giveaways}
+      HELLCASE_SESSION_PATH: /app/data/hellcase-session.json
+      HEADLESS: ${HEADLESS:-true}
+      DRY_RUN: ${DRY_RUN:-true}
+      NTFY_URL: ${NTFY_URL:-}
+    volumes:
+      - ./data:/app/data
+    restart: "no"
