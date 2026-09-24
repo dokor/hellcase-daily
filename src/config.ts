@@ -6,7 +6,14 @@ function bool(name: string, fallback: boolean): boolean {
   return ["1", "true", "yes", "on"].includes(value.toLowerCase());
 }
 
+function integer(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
 export const config = {
+  port: integer("PORT", 3000),
+  apiToken: process.env.AUTOMATION_API_TOKEN?.trim() || undefined,
   baseUrl: process.env.HELLCASE_BASE_URL ?? "https://hellcase.com/fr",
   giveawaysUrl:
     process.env.HELLCASE_GIVEAWAYS_URL ??

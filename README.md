@@ -1,132 +1,185 @@
-# hellcase-daily
+# Browser Automations
 
-Automatisation personnelle des actions gratuites quotidiennes sur Hellcase : inscription au giveaway gratuit du jour et ouverture de la caisse `newbie` gratuite.
+> Le dépôt conserve pour l'instant son nom GitHub historique `hellcase-daily`, mais il héberge désormais le worker Playwright partagé du homelab.
 
-Le projet utilise Playwright avec une session Hellcase persistante. La connexion est effectuée manuellement une première fois, puis le runner quotidien exécute deux actions : rejoindre le giveaway gratuit du jour et ouvrir la caisse gratuite `newbie` sur `https://hellcase.com/fr/open/newbie`.
+Ce service centralise les automatisations qui nécessitent un vrai navigateur. n8n reste responsable du scheduling, des conditions, des retries et des notifications ; ce worker reste responsable de Playwright, Chromium, des sessions navigateur et de la logique DOM.
 
-## Principes de sécurité
+## Architecture
 
-- `DRY_RUN=true` par défaut.
-- Aucun mot de passe Steam n'est stocké dans le projet.
-- La session Playwright est enregistrée localement dans `data/hellcase-session.json` et ignorée par Git.
-- Le runner refuse de continuer si la page semble demander un dépôt, un achat, une ouverture de caisse ou une dépense.
-- Aucun contournement de CAPTCHA ou de protection anti-bot.
-- Si la session expire ou si le giveaway ne peut pas être identifié avec suffisamment de certitude, le runner s'arrête.
-
-## Installation
-
-```bash
-npm install
-npx playwright install chromium
-cp .env.example .env
+```text
+n8n
+  |
+  | HTTP POST
+  v
+browser-automations
+  |
+  +-- hellcase.daily
+  +-- future-site.daily
+  +-- ...
 ```
 
-## 1. Enregistrer la session Hellcase
+L'objectif est de ne plus créer un projet Docker/Playwright et un cron pour chaque petite automatisation.
 
-Cette étape doit être faite sur une machine avec une interface graphique :
+## API
 
-```bash
-npm run auth
+### Health
+
+```http
+GET /health
 ```
 
-Un navigateur s'ouvre sur Hellcase. Connecte-toi manuellement, puis reviens dans le terminal et valide avec Entrée.
+### Lister les automatisations
 
-La session est enregistrée dans :
+```http
+GET /automations
+Authorization: Bearer <AUTOMATION_API_TOKEN>
+```
+
+### Exécuter une automatisation
+
+```http
+POST /run/hellcase.daily
+Authorization: Bearer <AUTOMATION_API_TOKEN>
+```
+
+Exemple de réponse :
+
+```json
+{
+  "automation": "hellcase.daily",
+  "ok": true,
+  "dryRun": true,
+  "messages": [
+    "🧪 Giveaway dry-run: would join ...",
+    "🧪 Newbie case dry-run: would open ..."
+  ]
+}
+```
+
+Une même automatisation ne peut pas être lancée deux fois simultanément : le worker renvoie HTTP 409 si elle est déjà en cours.
+
+## Hellcase
+
+Le module `hellcase.daily` :
+
+1. charge la session navigateur persistante ;
+2. cherche le giveaway gratuit éligible ;
+3. refuse les actions qui semblent payantes ;
+4. rejoint le giveaway si nécessaire ;
+5. ouvre la caisse gratuite `newbie` si elle est disponible ;
+6. renvoie un résultat structuré à n8n.
+
+Les deux sous-tâches restent indépendantes : une erreur sur le giveaway n'empêche pas la tentative d'ouverture de la caisse.
+
+## Ajouter une nouvelle automatisation
+
+Créer uniquement un nouveau module dans :
+
+```text
+src/automations/
+```
+
+Puis l'enregistrer dans `src/automations/index.ts`.
+
+Le module implémente :
+
+```ts
+type AutomationDefinition = {
+  id: string;
+  description: string;
+  run: () => Promise<AutomationRunResult>;
+};
+```
+
+Il n'est pas nécessaire de recréer :
+
+- un serveur HTTP ;
+- un conteneur Chromium ;
+- un cron ;
+- une logique n8n ;
+- une gestion de concurrence.
+
+## Session Hellcase
+
+La session reste dans :
 
 ```text
 data/hellcase-session.json
 ```
 
-Ne commite jamais ce fichier.
+Elle n'est jamais commitée.
 
-## 2. Tester sans rejoindre le giveaway
-
-Le mode dry-run est activé par défaut :
+Pour la créer depuis un poste avec interface graphique :
 
 ```bash
-npm run daily
+npm install
+npx playwright install chromium
+npm run auth
 ```
 
-Ou explicitement :
+Puis transférer le fichier vers le Raspberry.
+
+## Développement
 
 ```bash
-DRY_RUN=true npm run daily
+npm install
+npm run typecheck
+npm run server
 ```
 
-Le script :
-
-1. charge la session Hellcase ;
-2. ouvre la page des giveaways ;
-3. cherche un giveaway avec des signaux `free/gratuit` + `daily/quotidien` ;
-4. rejette les pages qui semblent demander une action payante ;
-5. vérifie si le compte est déjà inscrit ;
-6. ouvre ensuite la page `/open/newbie` ;
-7. vérifie que la caisse est explicitement gratuite et qu'aucune dépense n'est demandée ;
-8. ouvre la caisse si elle n'a pas déjà été ouverte aujourd'hui ;
-9. en dry-run, affiche uniquement ce qu'il ferait.
-
-## 3. Activer réellement l'inscription
-
-Une fois le dry-run validé :
+Le mode sécurisé est activé par défaut :
 
 ```env
-DRY_RUN=false
-```
-
-Puis :
-
-```bash
-npm run daily
+HEADLESS=true
+DRY_RUN=true
 ```
 
 ## Docker
 
+Le réseau Docker `automation` doit être créé une seule fois et partagé avec n8n :
+
 ```bash
-docker compose build
-docker compose run --rm hellcase-daily
+docker network create automation
+docker compose up -d --build
 ```
 
-Le dossier local `./data` est monté dans le conteneur afin de réutiliser la session.
+Le worker n'expose volontairement aucun port sur l'hôte. n8n l'appelle sur le réseau Docker :
 
-## Notification ntfy
+```text
+http://browser-automations:3000/run/hellcase.daily
+```
 
-Optionnellement :
+## Authentification interne
+
+Définir idéalement :
 
 ```env
-NTFY_URL=https://ntfy.example.com/hellcase-daily
+AUTOMATION_API_TOKEN=<secret-long>
 ```
 
-Le runner enverra le résultat de l'exécution sur ce topic.
+Le node HTTP Request n8n envoie ensuite :
 
-## Planification sur Raspberry Pi
-
-Exemple avec cron à 08:15 :
-
-```cron
-15 8 * * * cd /opt/hellcase-daily && docker compose run --rm hellcase-daily
+```text
+Authorization: Bearer <secret-long>
 ```
 
-Pour une utilisation réelle, mettre `DRY_RUN=false` dans le fichier `.env` uniquement après avoir vérifié plusieurs exécutions dry-run.
+`/health` reste accessible sans token pour les health checks.
 
-## Scripts
+## Compatibilité CLI
 
-| Commande | Description |
-| --- | --- |
-| `npm run auth` | Connexion manuelle et sauvegarde de la session |
-| `npm run daily` | Lance le runner quotidien |
-| `npm run daily:dry` | Force le mode dry-run |
-| `npm run typecheck` | Vérifie les types TypeScript |
+Le runner historique reste disponible :
 
-## Limites actuelles
+```bash
+npm run daily
+```
 
-La V1 utilise des heuristiques sur les liens et textes visibles de la page Hellcase. Le DOM réel peut nécessiter d'ajuster les sélecteurs après une première exécution.
+Il utilise exactement le même module `hellcase.daily` que l'API, afin d'éviter toute duplication de logique.
 
-Le runner est volontairement conservateur : en cas de doute, il ne clique pas. Les deux actions sont isolées : si l'une échoue, l'autre est quand même tentée.
+## Sécurité
 
-## Roadmap
-
-- Valider les sélecteurs du giveaway et de la caisse `newbie` sur le DOM actuel de Hellcase.
-- Ajouter des tests sur des fixtures HTML.
-- Ajouter une capture d'écran en cas d'échec.
-- Ajouter un statut distinct pour session expirée / CAPTCHA.
-- Déployer le cron sur le Raspberry Pi.
+- aucune action payante volontaire ;
+- `DRY_RUN=true` par défaut ;
+- aucun mot de passe Steam dans le repo ;
+- aucun contournement de CAPTCHA ;
+- worker non exposé publiquement ;
+- token HTTP interne optionnel mais recommandé.
