@@ -1,8 +1,14 @@
-import { hellcaseDailyAutomation } from "./hellcase.js";
+import {
+  hellcaseDailyCaseAutomation,
+  hellcaseDailyGiveawayAutomation,
+  hellcaseWeeklyGiveawayAutomation,
+} from "./hellcase.js";
 import type { AutomationDefinition } from "./types.js";
 
 const automations = new Map<string, AutomationDefinition>([
-  [hellcaseDailyAutomation.id, hellcaseDailyAutomation],
+  [hellcaseDailyGiveawayAutomation.id, hellcaseDailyGiveawayAutomation],
+  [hellcaseWeeklyGiveawayAutomation.id, hellcaseWeeklyGiveawayAutomation],
+  [hellcaseDailyCaseAutomation.id, hellcaseDailyCaseAutomation],
 ]);
 
 export function listAutomations(): Array<

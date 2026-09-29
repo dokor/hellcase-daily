@@ -6,6 +6,8 @@ export type GiveawayCandidate = {
   score: number;
 };
 
+export type GiveawayCadence = "daily" | "weekly";
+
 const paidSignals = [
   /deposit/i,
   /d[eé]p[oô]t/i,
@@ -20,10 +22,12 @@ const paidSignals = [
 const freeSignals = [
   /free/i,
   /gratuit/i,
-  /daily/i,
-  /quotidien/i,
-  /journalier/i,
 ];
+
+const cadenceSignals: Record<GiveawayCadence, RegExp[]> = {
+  daily: [/daily/i, /quotidien/i, /journalier/i],
+  weekly: [/weekly/i, /hebdomadaire/i, /semaine/i],
+};
 
 const joinedSignals = [
   /joined/i,
@@ -40,9 +44,12 @@ function normalizeHref(href: string): string {
   }
 }
 
-function score(text: string, href: string): number {
+function score(text: string, href: string, cadence: GiveawayCadence): number {
   let value = 0;
   for (const signal of freeSignals) {
+    if (signal.test(text) || signal.test(href)) value += 2;
+  }
+  for (const signal of cadenceSignals[cadence]) {
     if (signal.test(text) || signal.test(href)) value += 2;
   }
   if (/giveaway/i.test(href)) value += 1;
@@ -53,8 +60,9 @@ function looksPaid(text: string): boolean {
   return paidSignals.some((signal) => signal.test(text));
 }
 
-export async function findFreeDailyGiveaway(
-  page: Page
+export async function findFreeGiveaway(
+  page: Page,
+  cadence: GiveawayCadence
 ): Promise<GiveawayCandidate | null> {
   const links = page.locator('a[href*="giveaway"]');
   const count = await links.count();
@@ -71,7 +79,11 @@ export async function findFreeDailyGiveaway(
     if (!text || looksPaid(text)) continue;
 
     const normalized = normalizeHref(href);
-    const candidate = { href: normalized, text, score: score(text, normalized) };
+    const candidate = {
+      href: normalized,
+      text,
+      score: score(text, normalized, cadence),
+    };
 
     const current = byHref.get(normalized);
     if (!current || candidate.score > current.score) {
