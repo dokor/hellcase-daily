@@ -13,7 +13,9 @@ n8n
   v
 browser-automations
   |
-  +-- hellcase.daily
+  +-- hellcase.giveaway.daily
+  +-- hellcase.giveaway.weekly
+  +-- hellcase.case.daily
   +-- future-site.daily
   +-- ...
 ```
@@ -38,7 +40,7 @@ Authorization: Bearer <AUTOMATION_API_TOKEN>
 ### Exécuter une automatisation
 
 ```http
-POST /run/hellcase.daily
+POST /run/hellcase.case.daily
 Authorization: Bearer <AUTOMATION_API_TOKEN>
 ```
 
@@ -46,13 +48,19 @@ Exemple de réponse :
 
 ```json
 {
-  "automation": "hellcase.daily",
+  "automation": "hellcase.case.daily",
   "ok": true,
   "dryRun": true,
   "messages": [
-    "🧪 Giveaway dry-run: would join ...",
-    "🧪 Newbie case dry-run: would open ..."
-  ]
+    "Dry-run: would open free daily case."
+  ],
+  "logs": [{
+    "timestamp": "2026-09-29T08:00:00.000Z",
+    "action": "hellcase.case.daily",
+    "status": "skipped",
+    "dryRun": true,
+    "message": "Dry-run: would open free daily case."
+  }]
 }
 ```
 
@@ -60,16 +68,25 @@ Une même automatisation ne peut pas être lancée deux fois simultanément : le
 
 ## Hellcase
 
-Le module `hellcase.daily` :
+Les trois modules Hellcase sont indépendants :
 
-1. charge la session navigateur persistante ;
-2. cherche le giveaway gratuit éligible ;
-3. refuse les actions qui semblent payantes ;
-4. rejoint le giveaway si nécessaire ;
-5. ouvre la caisse gratuite `newbie` si elle est disponible ;
-6. renvoie un résultat structuré à n8n.
+1. `hellcase.giveaway.daily` rejoint seulement le giveaway quotidien gratuit ;
+2. `hellcase.giveaway.weekly` rejoint seulement le giveaway hebdomadaire gratuit ;
+3. `hellcase.case.daily` ouvre seulement la caisse gratuite quotidienne.
 
-Les deux sous-tâches restent indépendantes : une erreur sur le giveaway n'empêche pas la tentative d'ouverture de la caisse.
+Chaque exécution refuse les signaux de paiement et écrit un événement JSON structuré. Pour une caisse, l'événement contient le nom, la valeur et le texte de résultat détectés. Si le nom ne peut pas être extrait, le texte brut est conservé afin de pouvoir vérifier le gain sans relancer l'ouverture.
+
+Le journal persistant est monté dans le volume Docker :
+
+```text
+data/hellcase-automation-runs.jsonl
+```
+
+Chaque ligne est un événement autonome, consultable avec :
+
+```bash
+tail -n 50 data/hellcase-automation-runs.jsonl
+```
 
 ## Ajouter une nouvelle automatisation
 
@@ -167,13 +184,13 @@ Authorization: Bearer <secret-long>
 
 ## Compatibilité CLI
 
-Le runner historique reste disponible :
+Le runner local déclenche les deux actions quotidiennes, sans le workflow hebdomadaire :
 
 ```bash
 npm run daily
 ```
 
-Il utilise exactement le même module `hellcase.daily` que l'API, afin d'éviter toute duplication de logique.
+Il utilise les mêmes modules que l'API, afin d'éviter toute duplication de logique.
 
 ## Sécurité
 

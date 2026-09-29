@@ -1,20 +1,22 @@
 import { getAutomation } from "./automations/index.js";
 import { notify } from "./notify.js";
 
-const automation = getAutomation("hellcase.daily");
+const automationIds = [
+  "hellcase.giveaway.daily",
+  "hellcase.case.daily",
+];
 
-if (!automation) {
-  throw new Error("hellcase.daily automation is not registered.");
-}
+for (const automationId of automationIds) {
+  const automation = getAutomation(automationId);
+  if (!automation) throw new Error(automationId + " automation is not registered.");
 
-automation
-  .run()
-  .then(async (result) => {
+  try {
+    const result = await automation.run();
     await notify(result.messages.join("\n"));
     if (!result.ok) process.exitCode = 1;
-  })
-  .catch(async (error) => {
+  } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await notify("❌ Hellcase daily: " + message);
+    await notify("❌ " + automationId + ": " + message);
     process.exitCode = 1;
-  });
+  }
+}
