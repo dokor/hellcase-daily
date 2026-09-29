@@ -3,9 +3,11 @@ import { createPersistedBrowser } from "../browser.js";
 import { config } from "../config.js";
 import {
   assertNoPaidRequirement,
+  findFreeGiveawayCardAction,
   findFreeGiveaway,
   findJoinButton,
   isAlreadyJoined,
+  isAlreadyJoinedControl,
   type GiveawayCadence,
 } from "../giveaways.js";
 import { appendAutomationLog } from "../logs.js";
@@ -55,7 +57,42 @@ async function runGiveaway(
 
     const candidate = await findFreeGiveaway(page, cadence);
     if (!candidate) {
-      return entry(action, "skipped", `No clearly identifiable free ${cadence} giveaway found.`);
+      const cardAction = await findFreeGiveawayCardAction(page);
+      if (!cardAction) {
+        return entry(
+          action,
+          "skipped",
+          `No free ${cadence} giveaway card with a recognized join control was found.`
+        );
+      }
+
+      if (await isAlreadyJoinedControl(cardAction.control)) {
+        return entry(action, "already_joined", `${cadence} giveaway already joined.`, {
+          target: url,
+        });
+      }
+
+      if (config.dryRun) {
+        return entry(action, "skipped", `Dry-run: would join free ${cadence} giveaway.`, {
+          target: url,
+        });
+      }
+
+      const beforeUrl = page.url();
+      await cardAction.control.click();
+      await page.waitForTimeout(1_500);
+      const controlConfirmsJoin = await isAlreadyJoinedControl(cardAction.control);
+      const navigatedAndConfirmed =
+        page.url() !== beforeUrl && (await isAlreadyJoined(page));
+      if (!controlConfirmsJoin && !navigatedAndConfirmed) {
+        throw new Error(
+          "Free giveaway card was clicked, but participation could not be confirmed."
+        );
+      }
+
+      return entry(action, "joined", `Joined free ${cadence} giveaway.`, {
+        target: url,
+      });
     }
 
     await page.goto(candidate.href, {

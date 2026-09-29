@@ -7,6 +7,11 @@ export type GiveawayCandidate = {
   order: number;
 };
 
+export type GiveawayCardAction = {
+  control: Locator;
+  text: string;
+};
+
 export type GiveawayCadence = "daily" | "weekly";
 
 const paidSignals = [
@@ -33,6 +38,7 @@ const cadenceSignals: Record<GiveawayCadence, RegExp[]> = {
 const joinedSignals = [
   /joined/i,
   /participating/i,
+  /participant/i,
   /inscrit/i,
   /participation confirm[eé]e/i,
 ];
@@ -109,6 +115,38 @@ export async function findFreeGiveaway(
   return [...byHref.values()]
     .filter((candidate) => candidate.score >= 3)
     .sort((a, b) => b.score - a.score || a.order - b.order)[0] ?? null;
+}
+
+export async function findFreeGiveawayCardAction(
+  page: Page
+): Promise<GiveawayCardAction | null> {
+  const selectors = [
+    page.getByRole("button", {
+      name: /join|rejoindre|participer|participant|s'inscrire|inscription/i,
+    }),
+    page.getByRole("link", {
+      name: /join|rejoindre|participer|participant|s'inscrire|inscription/i,
+    }),
+  ];
+
+  for (const controls of selectors) {
+    const count = await controls.count();
+    for (let i = 0; i < count; i++) {
+      const control = controls.nth(i);
+      if (!(await control.isVisible().catch(() => false))) continue;
+
+      const text = await giveawayCardText(control);
+      const isFree = freeSignals.some((signal) => signal.test(text));
+      if (isFree && !looksPaid(text)) return { control, text };
+    }
+  }
+
+  return null;
+}
+
+export async function isAlreadyJoinedControl(control: Locator): Promise<boolean> {
+  const text = await control.innerText().catch(() => "");
+  return joinedSignals.some((signal) => signal.test(text));
 }
 
 export async function isAlreadyJoined(page: Page): Promise<boolean> {
