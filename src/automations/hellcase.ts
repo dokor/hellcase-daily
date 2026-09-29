@@ -55,6 +55,14 @@ async function runGiveaway(
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
     await assertSession(page);
 
+    if (cadence === "daily") {
+      await page
+        .locator('a[href^="/fr/giveaways/free/"]')
+        .first()
+        .waitFor({ state: "visible", timeout: 10_000 })
+        .catch(() => undefined);
+    }
+
     const candidate = await findFreeGiveaway(page, cadence);
     if (!candidate) {
       const cardAction = await findFreeGiveawayCardAction(page);

@@ -85,7 +85,11 @@ export async function findFreeGiveaway(
   page: Page,
   cadence: GiveawayCadence
 ): Promise<GiveawayCandidate | null> {
-  const links = page.locator('a[href*="giveaway"]');
+  const freeDailyLinks = page.locator('a[href^="/fr/giveaways/free/"]');
+  const links =
+    cadence === "daily" && (await freeDailyLinks.count()) > 0
+      ? freeDailyLinks
+      : page.locator('a[href*="giveaway"]');
   const count = await links.count();
 
   const byHref = new Map<string, GiveawayCandidate>();
