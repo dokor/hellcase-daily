@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+const defaultBaseUrl = "https://hellcase.com/fr";
+
 function bool(name: string, fallback: boolean): boolean {
   const value = process.env[name];
   if (value == null) return fallback;
@@ -14,10 +16,10 @@ function integer(name: string, fallback: number): number {
 export const config = {
   port: integer("PORT", 3000),
   apiToken: process.env.AUTOMATION_API_TOKEN?.trim() || undefined,
-  baseUrl: process.env.HELLCASE_BASE_URL ?? "https://hellcase.com/fr",
+  baseUrl: process.env.HELLCASE_BASE_URL ?? defaultBaseUrl,
   giveawaysUrl:
     process.env.HELLCASE_GIVEAWAYS_URL ??
-    "https://hellcase.com/fr/giveaways",
+    defaultBaseUrl,
   weeklyGiveawaysUrl:
     process.env.HELLCASE_WEEKLY_GIVEAWAYS_URL ??
     "https://hellcase.com/fr/giveaways",

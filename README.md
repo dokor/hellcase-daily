@@ -76,6 +76,8 @@ Les trois modules Hellcase sont indépendants :
 
 Chaque exécution refuse les signaux de paiement et écrit un événement JSON structuré. Pour une caisse, l'événement contient le nom, la valeur et le texte de résultat détectés. Si le nom ne peut pas être extrait, le texte brut est conservé afin de pouvoir vérifier le gain sans relancer l'ouverture.
 
+Le giveaway quotidien est recherché en priorité dans le bloc **Giveaways** de la page d'accueil Hellcase. Parmi les cartes gratuites éligibles, le premier résultat affiché est privilégié. L'URL peut être surchargée avec `HELLCASE_GIVEAWAYS_URL` si Hellcase modifie cette disposition.
+
 Le journal persistant est monté dans le volume Docker :
 
 ```text

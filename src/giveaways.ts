@@ -4,6 +4,7 @@ export type GiveawayCandidate = {
   href: string;
   text: string;
   score: number;
+  order: number;
 };
 
 export type GiveawayCadence = "daily" | "weekly";
@@ -60,6 +61,20 @@ function looksPaid(text: string): boolean {
   return paidSignals.some((signal) => signal.test(text));
 }
 
+async function giveawayCardText(link: Locator): Promise<string> {
+  const ancestors = link.locator("xpath=ancestor::*[self::article or self::div]");
+  const count = Math.min(await ancestors.count(), 8);
+
+  for (let i = 0; i < count; i++) {
+    const text = (await ancestors.nth(i).innerText().catch(() => "")).trim();
+    if (freeSignals.some((signal) => signal.test(text)) || looksPaid(text)) {
+      return text;
+    }
+  }
+
+  return (await link.innerText().catch(() => "")).trim();
+}
+
 export async function findFreeGiveaway(
   page: Page,
   cadence: GiveawayCadence
@@ -74,8 +89,7 @@ export async function findFreeGiveaway(
     const href = await link.getAttribute("href");
     if (!href) continue;
 
-    const card = link.locator("xpath=ancestor-or-self::*[self::a or self::article or self::div][1]");
-    const text = ((await card.innerText().catch(() => "")) || (await link.innerText().catch(() => ""))).trim();
+    const text = await giveawayCardText(link);
     if (!text || looksPaid(text)) continue;
 
     const normalized = normalizeHref(href);
@@ -83,6 +97,7 @@ export async function findFreeGiveaway(
       href: normalized,
       text,
       score: score(text, normalized, cadence),
+      order: i,
     };
 
     const current = byHref.get(normalized);
@@ -93,7 +108,7 @@ export async function findFreeGiveaway(
 
   return [...byHref.values()]
     .filter((candidate) => candidate.score >= 3)
-    .sort((a, b) => b.score - a.score)[0] ?? null;
+    .sort((a, b) => b.score - a.score || a.order - b.order)[0] ?? null;
 }
 
 export async function isAlreadyJoined(page: Page): Promise<boolean> {
